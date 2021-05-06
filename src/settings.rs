@@ -22,8 +22,8 @@ type HashMap<K, V> = std::collections::HashMap<K, V, BuildHasherDefault<DefaultH
 
 #[derive(Deserialize)]
 pub struct Config {
-    pub discord: Discord,
-    pub twitch: Twitch,
+    pub discord: Option<Discord>,
+    pub twitch: Option<Twitch>,
 }
 
 #[derive(Deserialize)]
@@ -35,6 +35,12 @@ pub struct Discord {
 pub struct Twitch {
     pub login: String,
     pub token: String,
+    #[serde(default = "default_channel")]
+    pub channel: String,
+}
+
+fn default_channel() -> String {
+    String::from("togglebit")
 }
 
 pub async fn load_config() -> Result<Config> {

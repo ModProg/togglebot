@@ -13,17 +13,16 @@ use crate::{settings::Twitch, Message, Queue, Response, Shutdown, Source, UserRe
 
 type Client = TwitchIRCClient<TCPTransport, StaticLoginCredentials>;
 
-const CHANNEL: &str = "togglebit";
-
 #[allow(clippy::missing_panics_doc)]
 pub async fn start(config: &Twitch, queue: Queue, mut shutdown: Shutdown) -> Result<()> {
-    let config = ClientConfig::new_simple(StaticLoginCredentials::new(
+    let irc_config = ClientConfig::new_simple(StaticLoginCredentials::new(
         config.login.clone(),
         Some(config.token.clone()),
     ));
-    let (mut messages, client) = Client::new(config);
+    let (mut messages, client) = Client::new(irc_config);
+    let channel = config.channel.clone();
 
-    client.join(CHANNEL.to_owned());
+    client.join(channel.clone());
 
     tokio::spawn(async move {
         loop {
@@ -33,9 +32,9 @@ pub async fn start(config: &Twitch, queue: Queue, mut shutdown: Shutdown) -> Res
                     if let Some(message) = message {
                         let client = client.clone();
                         let queue = queue.clone();
-
+                        let channel = channel.clone();
                         tokio::spawn(async move {
-                            if let Err(e) = handle_server_message(queue, message, client).await {
+                            if let Err(e) = handle_server_message(queue, message, client, channel).await {
                                 error!("error during event handling: {}", e);
                             }
                         });
@@ -52,9 +51,14 @@ pub async fn start(config: &Twitch, queue: Queue, mut shutdown: Shutdown) -> Res
     Ok(())
 }
 
-async fn handle_server_message(queue: Queue, message: ServerMessage, client: Client) -> Result<()> {
+async fn handle_server_message(
+    queue: Queue,
+    message: ServerMessage,
+    client: Client,
+    channel: String,
+) -> Result<()> {
     match message {
-        ServerMessage::Privmsg(msg) => handle_message(queue, msg, client).await?,
+        ServerMessage::Privmsg(msg) => handle_message(queue, msg, client, channel).await?,
         ServerMessage::Join(_) => info!("twitch connection ready, listening for events"),
         _ => {}
     }
@@ -62,7 +66,12 @@ async fn handle_server_message(queue: Queue, message: ServerMessage, client: Cli
     Ok(())
 }
 
-async fn handle_message(queue: Queue, msg: PrivmsgMessage, client: Client) -> Result<()> {
+async fn handle_message(
+    queue: Queue,
+    msg: PrivmsgMessage,
+    client: Client,
+    channel: String,
+) -> Result<()> {
     let message = Message {
         source: Source::Twitch,
         content: msg.message_text.clone(),
@@ -73,7 +82,9 @@ async fn handle_message(queue: Queue, msg: PrivmsgMessage, client: Client) -> Re
     if queue.send((message, tx)).await.is_ok() {
         if let Ok(resp) = rx.await {
             match resp {
-                Response::User(user_resp) => handle_user_message(user_resp, msg, client).await?,
+                Response::User(user_resp) => {
+                    handle_user_message(user_resp, msg, client, channel).await?
+                }
                 Response::Admin(_) => {}
             }
         }
@@ -87,27 +98,28 @@ async fn handle_user_message(
     resp: UserResponse,
     msg: PrivmsgMessage,
     client: Client,
+    channel: String,
 ) -> Result<()> {
     match resp {
-        UserResponse::Help => handle_help(msg, client).await,
-        UserResponse::Commands(res) => handle_commands(msg, client, res).await,
-        UserResponse::Links(links) => handle_links(msg, client, links).await,
+        UserResponse::Help => handle_help(msg, client, channel).await,
+        UserResponse::Commands(res) => handle_commands(msg, client, channel, res).await,
+        UserResponse::Links(links) => handle_links(msg, client, channel, links).await,
         UserResponse::Schedule {
             start,
             finish,
             off_days,
-        } => handle_schedule(msg, client, start, finish, off_days).await,
-        UserResponse::Ban(target) => handle_ban(msg, client, target).await,
-        UserResponse::Crate(res) => handle_crate(msg, client, res).await,
-        UserResponse::Custom(content) => handle_custom(msg, client, content).await,
+        } => handle_schedule(msg, client, channel, start, finish, off_days).await,
+        UserResponse::Ban(target) => handle_ban(msg, client, channel, target).await,
+        UserResponse::Crate(res) => handle_crate(msg, client, channel, res).await,
+        UserResponse::Custom(content) => handle_custom(msg, client, channel, content).await,
         UserResponse::Unknown => Ok(()),
     }
 }
 
-async fn handle_help(msg: PrivmsgMessage, client: Client) -> Result<()> {
+async fn handle_help(msg: PrivmsgMessage, client: Client, channel: String) -> Result<()> {
     client
         .say_in_response(
-            CHANNEL.to_owned(),
+            channel,
             "Thanks for asking, I'm a bot to help answer some typical questions. \
             Try out `!commands` command to see what I can do. \
             My source code is at https://github.com/dnaka91/togglebot"
@@ -122,6 +134,7 @@ async fn handle_help(msg: PrivmsgMessage, client: Client) -> Result<()> {
 async fn handle_commands(
     msg: PrivmsgMessage,
     client: Client,
+    channel: String,
     res: Result<Vec<String>>,
 ) -> Result<()> {
     let message = match res {
@@ -140,16 +153,21 @@ async fn handle_commands(
     };
 
     client
-        .say_in_response(CHANNEL.to_owned(), message, Some(msg.message_id))
+        .say_in_response(channel, message, Some(msg.message_id))
         .await?;
 
     Ok(())
 }
 
-async fn handle_links(msg: PrivmsgMessage, client: Client, links: &[(&str, &str)]) -> Result<()> {
+async fn handle_links(
+    msg: PrivmsgMessage,
+    client: Client,
+    channel: String,
+    links: &[(&str, &str)],
+) -> Result<()> {
     client
         .say_in_response(
-            CHANNEL.to_owned(),
+            channel,
             links
                 .iter()
                 .enumerate()
@@ -173,6 +191,7 @@ async fn handle_links(msg: PrivmsgMessage, client: Client, links: &[(&str, &str)
 async fn handle_schedule(
     msg: PrivmsgMessage,
     client: Client,
+    channel: String,
     start: String,
     finish: String,
     off_days: Vec<String>,
@@ -198,19 +217,25 @@ async fn handle_schedule(
 
     client
         .say_in_response(
-            CHANNEL.to_owned(),
+            channel,
             format!("{} | {} | Timezone CET", days, time),
             Some(msg.message_id),
         )
         .await?;
+    info!("Replied");
 
     Ok(())
 }
 
-async fn handle_ban(msg: PrivmsgMessage, client: Client, target: String) -> Result<()> {
+async fn handle_ban(
+    msg: PrivmsgMessage,
+    client: Client,
+    channel: String,
+    target: String,
+) -> Result<()> {
     client
         .say_in_response(
-            CHANNEL.to_owned(),
+            channel,
             format!("{}, YOU SHALL NOT PASS!!", target),
             Some(msg.message_id),
         )
@@ -219,7 +244,12 @@ async fn handle_ban(msg: PrivmsgMessage, client: Client, target: String) -> Resu
     Ok(())
 }
 
-async fn handle_crate(msg: PrivmsgMessage, client: Client, res: Result<String>) -> Result<()> {
+async fn handle_crate(
+    msg: PrivmsgMessage,
+    client: Client,
+    channel: String,
+    res: Result<String>,
+) -> Result<()> {
     let message = match res {
         Ok(link) => link,
         Err(e) => {
@@ -229,15 +259,20 @@ async fn handle_crate(msg: PrivmsgMessage, client: Client, res: Result<String>) 
     };
 
     client
-        .say_in_response(CHANNEL.to_owned(), message, Some(msg.message_id))
+        .say_in_response(channel, message, Some(msg.message_id))
         .await?;
 
     Ok(())
 }
 
-async fn handle_custom(msg: PrivmsgMessage, client: Client, content: String) -> Result<()> {
+async fn handle_custom(
+    msg: PrivmsgMessage,
+    client: Client,
+    channel: String,
+    content: String,
+) -> Result<()> {
     client
-        .say_in_response(CHANNEL.to_owned(), content, Some(msg.message_id))
+        .say_in_response(channel, content, Some(msg.message_id))
         .await?;
 
     Ok(())
