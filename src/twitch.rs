@@ -9,7 +9,10 @@ use twitch_irc::{
     ClientConfig, TCPTransport, TwitchIRCClient,
 };
 
-use crate::{settings::Twitch, Message, Queue, Response, Shutdown, Source, UserResponse};
+use crate::{
+    settings::{Links, Twitch},
+    Message, Queue, Response, Shutdown, Source, UserResponse,
+};
 
 type Client = TwitchIRCClient<TCPTransport, StaticLoginCredentials>;
 
@@ -101,7 +104,6 @@ async fn handle_user_message(
     channel: String,
 ) -> Result<()> {
     match resp {
-        UserResponse::Help => handle_help(msg, client, channel).await,
         UserResponse::Commands(res) => handle_commands(msg, client, channel, res).await,
         UserResponse::Links(links) => handle_links(msg, client, channel, links).await,
         UserResponse::Schedule {
@@ -116,21 +118,6 @@ async fn handle_user_message(
     }
 }
 
-async fn handle_help(msg: PrivmsgMessage, client: Client, channel: String) -> Result<()> {
-    client
-        .say_in_response(
-            channel,
-            "Thanks for asking, I'm a bot to help answer some typical questions. \
-            Try out `!commands` command to see what I can do. \
-            My source code is at https://github.com/dnaka91/togglebot"
-                .to_owned(),
-            Some(msg.message_id),
-        )
-        .await?;
-
-    Ok(())
-}
-
 async fn handle_commands(
     msg: PrivmsgMessage,
     client: Client,
@@ -138,14 +125,7 @@ async fn handle_commands(
     res: Result<Vec<String>>,
 ) -> Result<()> {
     let message = match res {
-        Ok(names) => names.into_iter().fold(
-            String::from("Available commands: !help (or !bot), !links, !schedule, !crate, !ban"),
-            |mut list, name| {
-                list.push_str(", !");
-                list.push_str(&name);
-                list
-            },
-        ),
+        Ok(names) => format!("Available commands: !{}", names.join(", !")),
         Err(e) => {
             error!("failed listing commands: {}", e);
             "Sorry, something went wrong fetching the list of commands".to_owned()
@@ -163,22 +143,22 @@ async fn handle_links(
     msg: PrivmsgMessage,
     client: Client,
     channel: String,
-    links: &[(&str, &str)],
+    links: Links,
 ) -> Result<()> {
     client
         .say_in_response(
             channel,
             links
-                .iter()
+                .into_iter()
                 .enumerate()
                 .fold(String::new(), |mut list, (i, (name, url))| {
                     if i > 0 {
                         list.push_str(" | ");
                     }
 
-                    list.push_str(name);
+                    list.push_str(&name);
                     list.push_str(": ");
-                    list.push_str(url);
+                    list.push_str(&url);
                     list
                 }),
             Some(msg.message_id),

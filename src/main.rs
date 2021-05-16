@@ -15,16 +15,23 @@ async fn main() -> Result<()> {
     env_logger::init();
 
     let config = settings::load_config().await?;
+    println!("{:?}", config);
     let state = settings::load_state().await?;
     let state = Arc::new(RwLock::new(state));
 
     let (shutdown_tx, shutdown_rx) = broadcast::channel(1);
     let shutdown_rx2 = shutdown_tx.subscribe();
 
+    let cloned = state.clone();
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.ok();
 
         info!("bot shutting down");
+        let state = cloned.read().await;
+        settings::save_state(&state)
+            .await
+            .map_err(|e| error!("Unable to save state: {}", e))
+            .ok();
         shutdown_tx.send(()).ok();
     });
 
@@ -43,7 +50,7 @@ async fn main() -> Result<()> {
                 .await
                 .map(Response::Admin)
         } else {
-            handler::user_message(state.clone(), message)
+            handler::user_message(&config, state.clone(), message)
                 .await
                 .map(Response::User)
         };

@@ -5,23 +5,11 @@ use twilight_embed_builder::{EmbedBuilder, EmbedFieldBuilder};
 use twilight_http::Client;
 use twilight_model::channel::Message as ChannelMessage;
 
+use crate::settings::Links;
+
 /// Gandalf's famous "You shall not pass!" scene.
 const GANDALF_GIF: &str =
     "https://tenor.com/view/you-shall-not-pass-lotr-do-not-enter-not-allowed-scream-gif-16729885";
-
-pub async fn help(msg: ChannelMessage, http: Client) -> Result<()> {
-    http.create_message(msg.channel_id)
-        .reply(msg.id)
-        .content(indoc! {"
-            Thanks for asking, I'm a bot to help answer some typical questions.
-            Try out the `!commands` command to see what I can do.
-
-            My source code is at <https://github.com/dnaka91/togglebot>
-        "})?
-        .await?;
-
-    Ok(())
-}
 
 pub async fn commands(msg: ChannelMessage, http: Client, res: Result<Vec<String>>) -> Result<()> {
     let message = match res {
@@ -61,21 +49,21 @@ pub async fn commands(msg: ChannelMessage, http: Client, res: Result<Vec<String>
     Ok(())
 }
 
-pub async fn links(msg: ChannelMessage, http: Client, links: &[(&str, &str)]) -> Result<()> {
+pub async fn links(msg: ChannelMessage, http: Client, links: Links) -> Result<()> {
     http.create_message(msg.channel_id)
         .reply(msg.id)
         .content(
             links
-                .iter()
+                .into_iter()
                 .enumerate()
                 .fold(String::new(), |mut list, (i, (name, url))| {
                     if i > 0 {
                         list.push('\n');
                     }
 
-                    list.push_str(name);
+                    list.push_str(&name);
                     list.push_str(": <");
-                    list.push_str(url);
+                    list.push_str(&url);
                     list.push('>');
                     list
                 }),

@@ -5,7 +5,10 @@ use std::sync::Arc;
 use anyhow::{bail, Result};
 use tokio::sync::RwLock;
 
-use crate::{settings::State, AdminResponse, Message, UserResponse};
+use crate::{
+    settings::{Config, State},
+    AdminResponse, Message, UserResponse,
+};
 
 mod admin;
 mod user;
@@ -14,7 +17,11 @@ mod user;
 pub type AsyncState = Arc<RwLock<State>>;
 
 /// Handle any user facing message and prepare a response.
-pub async fn user_message(state: AsyncState, message: Message) -> Result<UserResponse> {
+pub async fn user_message(
+    config: &Config,
+    state: AsyncState,
+    message: Message,
+) -> Result<UserResponse> {
     let mut parts = message.content.splitn(2, char::is_whitespace);
     let command = if let Some(cmd) = parts.next() {
         cmd
@@ -23,14 +30,12 @@ pub async fn user_message(state: AsyncState, message: Message) -> Result<UserRes
     };
 
     Ok(match (command.to_lowercase().as_ref(), parts.next()) {
-        ("!help", None) | ("!bot", None) => user::help(),
-        ("!commands", None) => user::commands(state, message.source).await,
-        ("!links", None) => user::links(message.source),
+        ("!commands", None) => user::commands(config, message.source).await,
+        ("!links", None) => user::links(config, message.source),
         ("!schedule", None) => user::schedule(state).await,
         ("!crate", Some(name)) => user::crate_(name).await,
-        ("!ban", Some(target)) => user::ban(target),
-        (name, None) => user::custom(state, message.source, name).await,
-        _ => UserResponse::Unknown,
+        ("!ban", Some(target)) => user::ban(target.trim()),
+        (name, args) => user::custom(&config, state, message.source, name, args).await,
     })
 }
 

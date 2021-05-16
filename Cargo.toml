@@ -7,6 +7,9 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0.40"
 chrono = { version = "0.4.19", features = ["serde"] }
+chrono-tz = "0.5.3"
+derivative = "2.2.0"
+dynfmt = "0.1.5"
 env_logger = { version = "0.8.3", default-features = false, features = ["atty", "termcolor"] }
 futures-util = "0.3.14"
 indoc = "1.0.3"

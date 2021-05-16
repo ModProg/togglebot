@@ -101,7 +101,6 @@ async fn handle_message(queue: Queue, msg: ChannelMessage, http: Client) -> Resu
 
 async fn handle_user_message(resp: UserResponse, msg: ChannelMessage, http: Client) -> Result<()> {
     match resp {
-        UserResponse::Help => user::help(msg, http).await,
         UserResponse::Commands(res) => user::commands(msg, http, res).await,
         UserResponse::Links(links) => user::links(msg, http, links).await,
         UserResponse::Schedule {

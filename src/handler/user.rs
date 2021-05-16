@@ -4,47 +4,41 @@ use log::info;
 use reqwest::StatusCode;
 
 use super::AsyncState;
-use crate::{Source, UserResponse};
+use crate::{
+    settings::{Command, CommandItem, Config},
+    Source, UserResponse,
+};
 
-pub fn help() -> UserResponse {
-    info!("user: received `help` command");
-    UserResponse::Help
-}
-
-pub async fn commands(state: AsyncState, source: Source) -> UserResponse {
+pub async fn commands(config: &Config, source: Source) -> UserResponse {
     info!("user: received `commands` command");
-    UserResponse::Commands(Ok(list_command_names(state, source).await))
+    UserResponse::Commands(Ok(list_command_names(config, source).await))
 }
 
-async fn list_command_names(state: AsyncState, source: Source) -> Vec<String> {
-    state
-        .read()
-        .await
-        .custom_commands
+async fn list_command_names(config: &Config, source: Source) -> Vec<String> {
+    config
+        .commands
         .iter()
-        .filter_map(|(name, sources)| {
-            if sources.contains_key(&source) {
-                Some(name.clone())
-            } else {
-                None
-            }
+        .filter_map(|(name, ci)| match ci {
+            CommandItem::Enabled(true)
+            | CommandItem::Custom(Command { aliases: None, .. })
+            | CommandItem::Message(_) => Some(name.to_string()),
+            CommandItem::Custom(Command {
+                aliases: Some(aliases),
+                ..
+            }) => match aliases.len() {
+                0 => Some(name.to_string()),
+                _ => Some(format!("{} (or {})", name, aliases.join(", "))),
+            },
+            _ => None,
         })
         .collect()
 }
 
-pub fn links(source: Source) -> UserResponse {
+pub fn links(config: &Config, source: Source) -> UserResponse {
     info!("user: received `links` command");
     UserResponse::Links(match source {
-        Source::Discord => &[
-            ("Website", "https://togglebit.io"),
-            ("GitHub", "https://github.com/togglebyte"),
-            ("Twitch", "https://twitch.tv/togglebit"),
-        ],
-        Source::Twitch => &[
-            ("Website", "https://togglebit.io"),
-            ("GitHub", "https://github.com/togglebyte"),
-            ("Discord", "https://discord.gg/qtyDMat"),
-        ],
+        Source::Discord => config.links.clone(),
+        Source::Twitch => config.links.clone(),
     })
 }
 
@@ -102,20 +96,38 @@ pub async fn crate_(name: &str) -> UserResponse {
     UserResponse::Crate(res.await)
 }
 
-pub async fn custom(state: AsyncState, source: Source, name: &str) -> UserResponse {
+pub async fn custom(
+    config: &Config,
+    state: AsyncState,
+    source: Source,
+    name: &str,
+    args: Option<&str>,
+) -> UserResponse {
     if let Some(name) = name.strip_prefix('!') {
-        state
-            .read()
-            .await
-            .custom_commands
-            .get(name)
-            .and_then(|content| content.get(&source))
-            .map(|content| {
-                info!("user: received custom `{}` command", name);
-                content
-            })
-            .cloned()
-            .map_or(UserResponse::Unknown, UserResponse::Custom)
+        info!("{:?}", args);
+        if let Some((cn, ci)) = config.commands.iter().find(|(key, val)| {
+            if name.eq_ignore_ascii_case(key) {
+                true
+            } else {
+                if let CommandItem::Custom(Command {
+                    aliases: Some(aliases),
+                    ..
+                }) = val
+                {
+                    aliases.iter().any(|a| a.eq_ignore_ascii_case(key))
+                } else {
+                    false
+                }
+            }
+        }) {
+            match ci {
+                CommandItem::Enabled(_) => UserResponse::Unknown,
+                CommandItem::Message(m) => UserResponse::Custom(m.clone()),
+                CommandItem::Custom(c) => c.respond(cn, args, state, source).await,
+            }
+        } else {
+            UserResponse::Unknown
+        }
     } else {
         UserResponse::Unknown
     }

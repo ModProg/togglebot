@@ -13,6 +13,8 @@ pub use tokio::sync::{
     oneshot::Sender as OneshotSender,
 };
 
+use self::settings::Links;
+
 pub mod discord;
 pub mod emojis;
 pub mod handler;
@@ -66,12 +68,10 @@ pub enum Response {
 pub enum UserResponse {
     /// Command was not recognized and should be ignored.
     Unknown,
-    /// Print a help message showing how to use the bot.
-    Help,
     /// List all available commands to the user.
     Commands(Result<Vec<String>>),
     /// Show a list of links to various platforms where the streamer is present.
-    Links(&'static [(&'static str, &'static str)]),
+    Links(Links),
     Schedule {
         start: String,
         finish: String,

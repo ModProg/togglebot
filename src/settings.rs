@@ -1,15 +1,17 @@
 //! All configuration and state loading/saving logic.
 
-use std::io::ErrorKind;
 #[cfg(test)]
 use std::{collections::hash_map::DefaultHasher, hash::BuildHasherDefault};
+use std::{io::ErrorKind, num::NonZeroU32};
 
 use anyhow::Result;
-use chrono::prelude::*;
+use chrono::{Duration, prelude::*};
+use derivative::Derivative;
+use log::info;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
-use crate::Source;
+use crate::{handler::AsyncState, Source, UserResponse};
 
 #[cfg(not(test))]
 type HashSet<T> = std::collections::HashSet<T>;
@@ -20,27 +22,89 @@ type HashMap<K, V> = std::collections::HashMap<K, V>;
 #[cfg(test)]
 type HashMap<K, V> = std::collections::HashMap<K, V, BuildHasherDefault<DefaultHasher>>;
 
-#[derive(Deserialize)]
+#[derive(Derivative, Deserialize, Clone)]
+#[derivative(Debug = "transparent", Default)]
+pub struct Links(HashMap<String, String>);
+
+type Commands = HashMap<String, CommandItem>;
+
+#[derive(Derivative, Deserialize, Clone)]
+#[derivative(Debug = "transparent")]
+#[serde(untagged)]
+pub enum CommandItem {
+    Enabled(bool),
+    Message(String),
+    Custom(Command),
+}
+
+#[derive(Derivative, Deserialize, Clone)]
+#[derivative(Debug)]
+pub struct Command {
+    args: Option<Vec<String>>,
+    format: Option<String>,
+    cooldown: Option<NonZeroU32>,
+    pub aliases: Option<Vec<String>>,
+}
+
+impl Command {
+    pub async fn respond(
+        &self,
+        name: &str,
+        args: Option<&str>,
+        state: AsyncState,
+        source: Source,
+    ) -> UserResponse {
+        if let Some(cooldown) = self.cooldown {
+            let mut state = state.write().await;
+            if let Some(last_executed) = state.last_executed.get(name) {
+                if *last_executed + Duration::seconds(u32::from(cooldown).into()) > Utc::now() {
+                    return UserResponse::Unknown;
+                }
+            } 
+            state.last_executed.insert(name.to_string(),Utc::now());
+        }
+        if let Some(format) = &self.format {
+            info!("{}", format);
+            UserResponse::Custom(format.clone())
+        } else {
+            UserResponse::Unknown
+        }
+    }
+}
+
+#[derive(Deserialize, Debug)]
 pub struct Config {
     pub discord: Option<Discord>,
     pub twitch: Option<Twitch>,
+    #[serde(default)]
+    pub links: Links,
+    pub commands: Commands,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Derivative)]
+#[derivative(Debug)]
 pub struct Discord {
+    #[derivative(Debug = "ignore")]
     pub token: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Derivative)]
+#[derivative(Debug)]
 pub struct Twitch {
     pub login: String,
+    #[derivative(Debug = "ignore")]
     pub token: String,
-    #[serde(default = "default_channel")]
     pub channel: String,
 }
 
-fn default_channel() -> String {
-    String::from("togglebit")
+impl IntoIterator for Links {
+    type Item = (String, String);
+
+    type IntoIter = std::collections::hash_map::IntoIter<String, String>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.clone().into_iter()
+    }
 }
 
 pub async fn load_config() -> Result<Config> {
@@ -61,6 +125,7 @@ pub struct State {
     pub off_days: HashSet<Weekday>,
     #[serde(default)]
     pub custom_commands: HashMap<String, HashMap<Source, String>>,
+    pub last_executed: HashMap<String, DateTime<Utc>>,
 }
 
 impl Default for State {
@@ -69,6 +134,7 @@ impl Default for State {
             schedule: BaseSchedule::default(),
             off_days: [Weekday::Sat, Weekday::Sun].iter().copied().collect(),
             custom_commands: HashMap::default(),
+            last_executed: HashMap::default(),
         }
     }
 }
@@ -177,6 +243,7 @@ mod tests {
             )]
             .into_iter()
             .collect(),
+            last_executed: HashMap::default(),
         })
         .unwrap();
         let expect = json! {{
