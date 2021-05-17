@@ -1,0 +1,51 @@
+[twitch]
+login = "togglethebot"
+channel = "togglebit"
+
+
+[commands]
+typing="Toggle Cool Cow Says Type (tccst for short) is a typing game written in Rust. You can grab a release for your platform at https://github.com/togglebyte/toggle_cool_cow_says_type/releases/latest"
+music="Music is most of the time played from this YouTube live stream: https://www.youtube.com/watch?v=dMXc9eeAtoA"
+book="https://doc.rust-lang.org/stable/book/"
+vim="https://github.com/togglebyte/vimconf"
+toot="https://www.youtube.com/playlist?list=PLwhLlO5Vugx6KCwTpW_4fUeES2jdkDSW9"
+viewers='"There are currently 10 viewers"'
+discord="https://discord.gg/qtyDMat"
+country="togglebit comes from Florpsylvania"
+links=true
+schedule=true
+crate=true
+commands=true
+
+[commands.help]
+format = "Thanks for asking, I'm a bot to help answer some typical questions. Try out `!commands` command to see what I can do. My source code is at https://github.com/dnaka91/togglebot"
+aliases = ["bot"]
+
+
+[commands.ban]
+args = ["string"]
+
+[commands.ban.format] 
+Twitch = "{}, YOU SHALL NOT PASS!!"
+Discord = "{}, **YOU SHALL NOT PASS!!**\n\nhttps://tenor.com/view/you-shall-not-pass-lotr-do-not-enter-not-allowed-scream-gif-16729885"
+
+[commands.lark]
+format = "Oh {}, you lark!"
+
+[commands.crate]
+args = ["url!https://lib.rs/crates/{}"]
+format = "{}"
+
+[links]
+Website = "https://togglebit.io"
+GitHub = "https://github.com/togglebyte"
+Discord = "https://discord.gg/qtyDMat"
+
+[schedule]
+timezone = "CET"
+12hours = true
+
+[[schedule.days]]
+range = ["mon", "fri"]
+time = ["7-8", 4]
+title = "Just some gaming!"
