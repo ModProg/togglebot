@@ -20,6 +20,7 @@ pub mod emojis;
 pub mod handler;
 pub mod settings;
 pub mod twitch;
+pub mod commands;
 
 /// A queue that service connecters can use to send received messages to the handler and get back a
 /// reply to render to the user.
@@ -40,7 +41,7 @@ pub struct Message {
 }
 
 /// Possible sources that a message came from.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
 pub enum Source {
     /// Discord source <https://discord.com>.
     Discord,
@@ -68,6 +69,7 @@ pub enum Response {
 pub enum UserResponse {
     /// Command was not recognized and should be ignored.
     Unknown,
+    WrongArgs,
     /// List all available commands to the user.
     Commands(Result<Vec<String>>),
     /// Show a list of links to various platforms where the streamer is present.
@@ -77,7 +79,6 @@ pub enum UserResponse {
         finish: String,
         off_days: Vec<String>,
     },
-    Ban(String),
     Crate(Result<String>),
     Custom(String),
 }

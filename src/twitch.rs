@@ -111,10 +111,10 @@ async fn handle_user_message(
             finish,
             off_days,
         } => handle_schedule(msg, client, channel, start, finish, off_days).await,
-        UserResponse::Ban(target) => handle_ban(msg, client, channel, target).await,
         UserResponse::Crate(res) => handle_crate(msg, client, channel, res).await,
         UserResponse::Custom(content) => handle_custom(msg, client, channel, content).await,
         UserResponse::Unknown => Ok(()),
+        UserResponse::WrongArgs => Ok(()),
     }
 }
 
@@ -203,23 +203,6 @@ async fn handle_schedule(
         )
         .await?;
     info!("Replied");
-
-    Ok(())
-}
-
-async fn handle_ban(
-    msg: PrivmsgMessage,
-    client: Client,
-    channel: String,
-    target: String,
-) -> Result<()> {
-    client
-        .say_in_response(
-            channel,
-            format!("{}, YOU SHALL NOT PASS!!", target),
-            Some(msg.message_id),
-        )
-        .await?;
 
     Ok(())
 }

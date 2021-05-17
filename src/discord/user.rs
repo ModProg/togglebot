@@ -8,8 +8,6 @@ use twilight_model::channel::Message as ChannelMessage;
 use crate::settings::Links;
 
 /// Gandalf's famous "You shall not pass!" scene.
-const GANDALF_GIF: &str =
-    "https://tenor.com/view/you-shall-not-pass-lotr-do-not-enter-not-allowed-scream-gif-16729885";
 
 pub async fn commands(msg: ChannelMessage, http: Client, res: Result<Vec<String>>) -> Result<()> {
     let message = match res {
@@ -109,27 +107,15 @@ pub async fn schedule(
         .content("Here is togglebit's stream schedule:")?
         .embed(
             EmbedBuilder::new()
-                .field(EmbedFieldBuilder::new("Days", days)?)
-                .field(EmbedFieldBuilder::new("Time", time)?)
-                .field(EmbedFieldBuilder::new("Timezone", "CET")?)
+                .field(EmbedFieldBuilder::new("Days", days))
+                .field(EmbedFieldBuilder::new("Time", time))
+                .field(EmbedFieldBuilder::new("Timezone", "CET"))
                 .build()?,
         )?
         .await?;
 
     Ok(())
 }
-pub async fn ban(msg: ChannelMessage, http: Client, target: String) -> Result<()> {
-    http.create_message(msg.channel_id)
-        .reply(msg.id)
-        .content(format!(
-            "{}, **YOU SHALL NOT PASS!!**\n\n{}",
-            target, GANDALF_GIF
-        ))?
-        .await?;
-
-    Ok(())
-}
-
 pub async fn crate_(msg: ChannelMessage, http: Client, res: Result<String>) -> Result<()> {
     let message = match res {
         Ok(link) => link,

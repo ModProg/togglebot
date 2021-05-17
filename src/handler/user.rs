@@ -4,10 +4,7 @@ use log::info;
 use reqwest::StatusCode;
 
 use super::AsyncState;
-use crate::{
-    settings::{Command, CommandItem, Config},
-    Source, UserResponse,
-};
+use crate::{Source, UserResponse, settings::{Command, CommandItem, Config}};
 
 pub async fn commands(config: &Config, source: Source) -> UserResponse {
     info!("user: received `commands` command");
@@ -19,15 +16,18 @@ async fn list_command_names(config: &Config, source: Source) -> Vec<String> {
         .commands
         .iter()
         .filter_map(|(name, ci)| match ci {
-            CommandItem::Enabled(true)
-            | CommandItem::Custom(Command { aliases: None, .. })
-            | CommandItem::Message(_) => Some(name.to_string()),
+            CommandItem::Enabled(true) | CommandItem::Message(_) => Some(name.to_string()),
+            CommandItem::Custom(Command {
+                aliases: None,
+                platforms,
+                ..
+            }) if platforms.contains(&source) => Some(name.to_string()),
             CommandItem::Custom(Command {
                 aliases: Some(aliases),
                 ..
             }) => match aliases.len() {
                 0 => Some(name.to_string()),
-                _ => Some(format!("{} (or {})", name, aliases.join(", "))),
+                _ => Some(format!("{} (or !{})", name, aliases.join(", !"))),
             },
             _ => None,
         })
@@ -67,11 +67,6 @@ pub async fn schedule(state: AsyncState) -> UserResponse {
             })
             .collect(),
     }
-}
-
-pub fn ban(target: &str) -> UserResponse {
-    info!("user: received `ban` command");
-    UserResponse::Ban(target.to_owned())
 }
 
 pub async fn crate_(name: &str) -> UserResponse {
@@ -114,7 +109,7 @@ pub async fn custom(
                     ..
                 }) = val
                 {
-                    aliases.iter().any(|a| a.eq_ignore_ascii_case(key))
+                    aliases.iter().any(|a| a.eq_ignore_ascii_case(name))
                 } else {
                     false
                 }

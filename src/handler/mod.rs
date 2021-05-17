@@ -34,7 +34,6 @@ pub async fn user_message(
         ("!links", None) => user::links(config, message.source),
         ("!schedule", None) => user::schedule(state).await,
         ("!crate", Some(name)) => user::crate_(name).await,
-        ("!ban", Some(target)) => user::ban(target.trim()),
         (name, args) => user::custom(&config, state, message.source, name, args).await,
     })
 }

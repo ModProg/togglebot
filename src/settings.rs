@@ -2,16 +2,16 @@
 
 #[cfg(test)]
 use std::{collections::hash_map::DefaultHasher, hash::BuildHasherDefault};
-use std::{io::ErrorKind, num::NonZeroU32};
+use std::{env, io::ErrorKind, num::NonZeroU32, str::FromStr};
 
 use anyhow::Result;
-use chrono::{Duration, prelude::*};
+use chrono::prelude::*;
 use derivative::Derivative;
-use log::info;
 use serde::{Deserialize, Serialize};
+use serde_with::DeserializeFromStr;
 use tokio::fs;
 
-use crate::{handler::AsyncState, Source, UserResponse};
+use crate::{commands::Type, Source};
 
 #[cfg(not(test))]
 type HashSet<T> = std::collections::HashSet<T>;
@@ -37,39 +37,52 @@ pub enum CommandItem {
     Custom(Command),
 }
 
+fn all_platforms() -> Vec<Source> {
+    vec![Source::Discord, Source::Twitch]
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum FormatString {
+    Universal(String),
+    Specific(HashMap<Source, String>),
+}
+
+#[derive(DeserializeFromStr, Clone, Debug)]
+pub enum Argument {
+    Simple,
+    Test(Type),
+    Format(Type),
+}
+
+impl FromStr for Argument {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match (s.find('?'), s.find('!')) {
+            (None, None) => Argument::Simple,
+            (None, Some(i)) => Argument::Format(Type::parse(&s[..i], &s[i + 1..])),
+            (Some(i), None) => Argument::Test(Type::parse(&s[..i], &s[i + 1..])),
+            (Some(q), Some(e)) => {
+                if q > e {
+                    Argument::Format(Type::parse(&s[..e], &s[e + 1..]))
+                } else {
+                    Argument::Test(Type::parse(&s[..q], &s[q + 1..]))
+                }
+            }
+        })
+    }
+}
+
 #[derive(Derivative, Deserialize, Clone)]
 #[derivative(Debug)]
 pub struct Command {
-    args: Option<Vec<String>>,
-    format: Option<String>,
-    cooldown: Option<NonZeroU32>,
+    pub args: Option<Vec<Argument>>,
+    pub format: Option<FormatString>,
+    pub cooldown: Option<NonZeroU32>,
     pub aliases: Option<Vec<String>>,
-}
-
-impl Command {
-    pub async fn respond(
-        &self,
-        name: &str,
-        args: Option<&str>,
-        state: AsyncState,
-        source: Source,
-    ) -> UserResponse {
-        if let Some(cooldown) = self.cooldown {
-            let mut state = state.write().await;
-            if let Some(last_executed) = state.last_executed.get(name) {
-                if *last_executed + Duration::seconds(u32::from(cooldown).into()) > Utc::now() {
-                    return UserResponse::Unknown;
-                }
-            } 
-            state.last_executed.insert(name.to_string(),Utc::now());
-        }
-        if let Some(format) = &self.format {
-            info!("{}", format);
-            UserResponse::Custom(format.clone())
-        } else {
-            UserResponse::Unknown
-        }
-    }
+    #[serde(default = "all_platforms")]
+    pub platforms: Vec<Source>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -79,6 +92,10 @@ pub struct Config {
     #[serde(default)]
     pub links: Links,
     pub commands: Commands,
+}
+
+pub fn env_token() -> String {
+    env::var("BOT_TWITCH_TOKEN").expect("TOKEN")
 }
 
 #[derive(Deserialize, Derivative)]
@@ -93,6 +110,7 @@ pub struct Discord {
 pub struct Twitch {
     pub login: String,
     #[derivative(Debug = "ignore")]
+    #[serde(default = "env_token")]
     pub token: String,
     pub channel: String,
 }
