@@ -1,7 +1,5 @@
-use anyhow::bail;
 use chrono::Weekday;
 use log::info;
-use reqwest::StatusCode;
 
 use super::AsyncState;
 use crate::{Source, UserResponse, settings::{Command, CommandItem, Config}};
@@ -67,28 +65,6 @@ pub async fn schedule(state: AsyncState) -> UserResponse {
             })
             .collect(),
     }
-}
-
-pub async fn crate_(name: &str) -> UserResponse {
-    info!("user: received `crate` command");
-
-    let res = async {
-        let link = format!("https://lib.rs/crates/{}", name);
-        let resp = reqwest::Client::builder()
-            .user_agent("ToggleBot")
-            .build()?
-            .get(&link)
-            .send()
-            .await?;
-
-        Ok(match resp.status() {
-            StatusCode::OK => link,
-            StatusCode::NOT_FOUND => format!("Crate `{}` doesn't exist", name),
-            s => bail!("unexpected status code {:?}", s),
-        })
-    };
-
-    UserResponse::Crate(res.await)
 }
 
 pub async fn custom(

@@ -2,16 +2,18 @@
 
 #[cfg(test)]
 use std::{collections::hash_map::DefaultHasher, hash::BuildHasherDefault};
-use std::{env, io::ErrorKind, num::NonZeroU32, str::FromStr};
+use std::io::ErrorKind;
 
 use anyhow::Result;
 use chrono::prelude::*;
-use derivative::Derivative;
 use serde::{Deserialize, Serialize};
-use serde_with::DeserializeFromStr;
 use tokio::fs;
 
-use crate::{commands::Type, Source};
+use crate::Source;
+
+use self::config::Config;
+
+mod config;
 
 #[cfg(not(test))]
 type HashSet<T> = std::collections::HashSet<T>;
@@ -21,109 +23,6 @@ type HashSet<T> = std::collections::HashSet<T, BuildHasherDefault<DefaultHasher>
 type HashMap<K, V> = std::collections::HashMap<K, V>;
 #[cfg(test)]
 type HashMap<K, V> = std::collections::HashMap<K, V, BuildHasherDefault<DefaultHasher>>;
-
-#[derive(Derivative, Deserialize, Clone)]
-#[derivative(Debug = "transparent", Default)]
-pub struct Links(HashMap<String, String>);
-
-type Commands = HashMap<String, CommandItem>;
-
-#[derive(Derivative, Deserialize, Clone)]
-#[derivative(Debug = "transparent")]
-#[serde(untagged)]
-pub enum CommandItem {
-    Enabled(bool),
-    Message(String),
-    Custom(Command),
-}
-
-fn all_platforms() -> Vec<Source> {
-    vec![Source::Discord, Source::Twitch]
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(untagged)]
-pub enum FormatString {
-    Universal(String),
-    Specific(HashMap<Source, String>),
-}
-
-#[derive(DeserializeFromStr, Clone, Debug)]
-pub enum Argument {
-    Simple,
-    Test(Type),
-    Format(Type),
-}
-
-impl FromStr for Argument {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match (s.find('?'), s.find('!')) {
-            (None, None) => Argument::Simple,
-            (None, Some(i)) => Argument::Format(Type::parse(&s[..i], &s[i + 1..])),
-            (Some(i), None) => Argument::Test(Type::parse(&s[..i], &s[i + 1..])),
-            (Some(q), Some(e)) => {
-                if q > e {
-                    Argument::Format(Type::parse(&s[..e], &s[e + 1..]))
-                } else {
-                    Argument::Test(Type::parse(&s[..q], &s[q + 1..]))
-                }
-            }
-        })
-    }
-}
-
-#[derive(Derivative, Deserialize, Clone)]
-#[derivative(Debug)]
-pub struct Command {
-    pub args: Option<Vec<Argument>>,
-    pub format: Option<FormatString>,
-    pub cooldown: Option<NonZeroU32>,
-    pub aliases: Option<Vec<String>>,
-    #[serde(default = "all_platforms")]
-    pub platforms: Vec<Source>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct Config {
-    pub discord: Option<Discord>,
-    pub twitch: Option<Twitch>,
-    #[serde(default)]
-    pub links: Links,
-    pub commands: Commands,
-}
-
-pub fn env_token() -> String {
-    env::var("BOT_TWITCH_TOKEN").expect("TOKEN")
-}
-
-#[derive(Deserialize, Derivative)]
-#[derivative(Debug)]
-pub struct Discord {
-    #[derivative(Debug = "ignore")]
-    pub token: String,
-}
-
-#[derive(Deserialize, Derivative)]
-#[derivative(Debug)]
-pub struct Twitch {
-    pub login: String,
-    #[derivative(Debug = "ignore")]
-    #[serde(default = "env_token")]
-    pub token: String,
-    pub channel: String,
-}
-
-impl IntoIterator for Links {
-    type Item = (String, String);
-
-    type IntoIter = std::collections::hash_map::IntoIter<String, String>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.clone().into_iter()
-    }
-}
 
 pub async fn load_config() -> Result<Config> {
     let config = fs::read("/app/config.toml").await;

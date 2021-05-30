@@ -53,6 +53,11 @@ Twitch needs a `login` which is the user account and a `token` that can be gener
 make a bot user a new normal user account needs to be created as Twitch doesn't have bot users as a
 feature on its own.
 
+### Scripting:
+- [] https://crates.io/crates/ketos
+- [] https://crates.io/crates/rhai/
+- [] https://crates.io/crates/mun_runtime
+
 ### Example
 
 Here is a short example of a full config file with sample values.

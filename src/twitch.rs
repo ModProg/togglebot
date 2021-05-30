@@ -111,7 +111,6 @@ async fn handle_user_message(
             finish,
             off_days,
         } => handle_schedule(msg, client, channel, start, finish, off_days).await,
-        UserResponse::Crate(res) => handle_crate(msg, client, channel, res).await,
         UserResponse::Custom(content) => handle_custom(msg, client, channel, content).await,
         UserResponse::Unknown => Ok(()),
         UserResponse::WrongArgs => Ok(()),
@@ -203,27 +202,6 @@ async fn handle_schedule(
         )
         .await?;
     info!("Replied");
-
-    Ok(())
-}
-
-async fn handle_crate(
-    msg: PrivmsgMessage,
-    client: Client,
-    channel: String,
-    res: Result<String>,
-) -> Result<()> {
-    let message = match res {
-        Ok(link) => link,
-        Err(e) => {
-            error!("failed searching for crate: {}", e);
-            "Sorry, something went wrong looking up the crate".to_owned()
-        }
-    };
-
-    client
-        .say_in_response(channel, message, Some(msg.message_id))
-        .await?;
 
     Ok(())
 }

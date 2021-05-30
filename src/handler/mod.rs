@@ -33,7 +33,6 @@ pub async fn user_message(
         ("!commands", None) => user::commands(config, message.source).await,
         ("!links", None) => user::links(config, message.source),
         ("!schedule", None) => user::schedule(state).await,
-        ("!crate", Some(name)) => user::crate_(name).await,
         (name, args) => user::custom(&config, state, message.source, name, args).await,
     })
 }

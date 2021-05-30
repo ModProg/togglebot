@@ -108,7 +108,6 @@ async fn handle_user_message(resp: UserResponse, msg: ChannelMessage, http: Clie
             finish,
             off_days,
         } => user::schedule(msg, http, start, finish, off_days).await,
-        UserResponse::Crate(res) => user::crate_(msg, http, res).await,
         UserResponse::Custom(content) => user::custom(msg, http, content).await,
         UserResponse::Unknown => Ok(()),
         UserResponse::WrongArgs => Ok(()),

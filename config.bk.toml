@@ -1,0 +1,79 @@
+[twitch]
+login = "modbotprog"
+channel = "modprog"
+# channel = "anderssonkev"
+# channel = "togglebit"
+
+
+[commands]
+"!typing"="Toggle Cool Cow Says Type (tccst for short) is a typing game written in Rust. You can grab a release for your platform at https://github.com/togglebyte/toggle_cool_cow_says_type/releases/latest"
+music="Music is most of the time played from this YouTube live stream: https://www.youtube.com/watch?v=NCveq2GrAaQ"
+book="https://doc.rust-lang.org/stable/book/"
+links=true
+schedule=false
+crate=true
+commands=true
+
+[commands.help]
+format = "Thanks for asking, I'm a bot to help answer some typical questions. Try out `!commands` command to see what I can do. My source code is at https://github.com/dnaka91/togglebot"
+aliases = ["bot"]
+
+[commands.ban]
+args = ["string"]
+
+[commands.ban.format] 
+Twitch = "{}, YOU SHALL NOT PASS!!"
+Discord = "{}, **YOU SHALL NOT PASS!!**\n\nhttps://tenor.com/view/you-shall-not-pass-lotr-do-not-enter-not-allowed-scream-gif-16729885"
+
+[commands.name]
+args = ["string..."]
+format = "Nenne einen NPC `{}`!"
+cooldown = 300
+
+[commands.lark]
+args = ["string"]
+format = "Oh {}, you lark!"
+
+[commands.gh]
+args = ["url!https://github.com/{}<!>The repository `{}` does not exist!"]
+format = "{}"
+
+[commands.docs]
+args = ["url!https://docs.rs/{}<!>The crate `{}` does not exist!"]
+format = "{}"
+
+[commands.crate]
+args = ["url!https://lib.rs/crates/{}<!>The crate `{}` does not exist!"]
+format = "{}"
+
+[commands.hat]
+format = "ModProg, wear your hat!"
+cooldown = 1800
+
+[commands.duolingo]
+aliases = ["học", "hoc"]
+format = "ModProg, LEARN YOUR VIETNAMESE!"
+cooldown = 1800
+
+[commands.type]
+format = "TCCST!"
+cooldown = 1800
+
+[links]
+Website = "https://modprog.de"
+GitHub = "https://github.com/modprog"
+ToggleBot = "https://github.com/dnaka91/togglebot/"
+
+[schedule]
+timezone = "CET"
+12hours = false
+
+[[schedule.days]]
+range = ["mon", "fri"]
+time = [1, 4]
+title = "Just some gaming!"
+
+[[schedule.days]]
+days = ["thu", "sa"]
+time = [8, 10]
+title = "Game Dev"
