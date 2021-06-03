@@ -14,7 +14,7 @@ async fn list_command_names(config: &Config, source: Source) -> Vec<String> {
         .commands
         .iter()
         .filter_map(|(name, ci)| match ci {
-            CommandItem::Enabled(true) | CommandItem::Message(_) => Some(name.to_string()),
+            CommandItem::Message(_) => Some(name.to_string()),
             CommandItem::Custom(Command {
                 aliases: None,
                 platforms,
@@ -92,9 +92,9 @@ pub async fn custom(
             }
         }) {
             match ci {
-                CommandItem::Enabled(_) => UserResponse::Unknown,
                 CommandItem::Message(m) => UserResponse::Custom(m.clone()),
                 CommandItem::Custom(c) => c.respond(cn, args, state, source).await,
+                CommandItem::Function(..) => todo!()
             }
         } else {
             UserResponse::Unknown

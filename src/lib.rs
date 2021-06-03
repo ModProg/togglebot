@@ -13,14 +13,14 @@ pub use tokio::sync::{
     oneshot::Sender as OneshotSender,
 };
 
-use self::settings::Links;
+use crate::settings::Links;
 
+pub mod commands;
 pub mod discord;
 pub mod emojis;
 pub mod handler;
 pub mod settings;
 pub mod twitch;
-pub mod commands;
 
 /// A queue that service connecters can use to send received messages to the handler and get back a
 /// reply to render to the user.

@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use log::{error, info, warn};
+use settings::Platform;
 use togglebot::{discord, handler, settings, twitch, Response};
 use tokio::sync::{broadcast, mpsc, RwLock};
 
@@ -37,11 +38,18 @@ async fn main() -> Result<()> {
 
     let (queue_tx, mut queue_rx) = mpsc::channel(100);
 
-    if let Some(discord) = &config.discord {
-        discord::start(discord, queue_tx.clone(), shutdown_rx).await?;
-    }
-    if let Some(twitch) = &config.twitch {
-        twitch::start(twitch, queue_tx, shutdown_rx2).await?;
+    // if let Some(discord) = &config.discord {
+    //     discord::start(discord, queue_tx.clone(), shutdown_rx).await?;
+    // }
+    // if let Some(twitch) = &config.twitch {
+    //     twitch::start(twitch, queue_tx, shutdown_rx2).await?;
+    // }
+
+    for (name, platform) in config.platforms.iter() {
+        match platform {
+            Platform::Discord(_) => todo!(),
+            Platform::Twitch(_) => todo!(),
+        }
     }
 
     while let Some((message, reply)) = queue_rx.recv().await {

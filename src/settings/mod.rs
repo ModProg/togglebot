@@ -1,19 +1,21 @@
 //! All configuration and state loading/saving logic.
 
+use std::io::ErrorKind;
 #[cfg(test)]
 use std::{collections::hash_map::DefaultHasher, hash::BuildHasherDefault};
-use std::io::ErrorKind;
 
 use anyhow::Result;
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
+pub use self::config::Config;
+pub use self::config_parsing::Platform;
+use self::config_parsing::ConfigDto;
 use crate::Source;
 
-use self::config::Config;
-
 mod config;
+mod config_parsing;
 
 #[cfg(not(test))]
 type HashSet<T> = std::collections::HashSet<T>;
@@ -25,13 +27,16 @@ type HashMap<K, V> = std::collections::HashMap<K, V>;
 type HashMap<K, V> = std::collections::HashMap<K, V, BuildHasherDefault<DefaultHasher>>;
 
 pub async fn load_config() -> Result<Config> {
-    let config = fs::read("/app/config.toml").await;
-    let config = match config {
-        Ok(c) => c,
-        Err(_) => fs::read("config.toml").await?,
-    };
-
-    toml::from_slice(&config).map_err(Into::into)
+    todo!()
+    // let config = fs::read("/app/config.toml").await;
+    // let config = match config {
+    //     Ok(c) => c,
+    //     Err(_) => fs::read("config.toml").await?,
+    // };
+    //
+    // toml::from_slice::<ConfigDto>(&config)
+    //     .map_err(Into::into)
+    //     .map(Into::into)
 }
 
 #[derive(Serialize, Deserialize)]
